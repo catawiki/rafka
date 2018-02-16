@@ -81,14 +81,18 @@ func (s *Server) handleConn(conn net.Conn) {
 			switch cmd {
 			// Consume the next message from one or more topics
 			//
-			// BLPOP topics:<topic> <timeoutMs>
+			// BLPOP topics:<topic>|<cfg-key>:<val>,<cfg-key>:<val> <timeoutMs>
 			case "BLPOP":
 				topics, err := parseTopics(string(command.Get(1)))
 				if err != nil {
 					writeErr = writer.WriteError("CONS " + err.Error())
 					break
 				}
-				cons, err := c.Consumer(topics)
+				cfg, err := parseConfig(string(command.Get(1)))
+				if err != nil {
+					writeErr = writer.WriteError("CONS " + err.Error())
+				}
+				cons, err := c.Consumer(topics, cfg)
 				if err != nil {
 					writeErr = writer.WriteError("CONS " + err.Error())
 					break
@@ -342,6 +346,11 @@ Loop:
 }
 
 func parseTopics(key string) ([]string, error) {
+	slashPos := strings.IndexRune(key, '|')
+	if slashPos != -1 {
+		key = key[:slashPos]
+	}
+
 	parts := strings.SplitN(key, ":", 2)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("Cannot parse topics from `%s`", key)
@@ -356,6 +365,34 @@ func parseTopics(key string) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("Cannot parse topics from `%s`", key)
 	}
+}
+
+// If both return values are nil, it means a configuration was not provided.
+func parseConfig(key string) (rdkafka.ConfigMap, error) {
+	slashPos := strings.IndexRune(key, '|')
+	if slashPos == -1 {
+		return nil, nil
+	}
+
+	key = key[slashPos+1:]
+	parts := strings.Split(key, ",")
+	if len(parts) < 1 {
+		return nil, fmt.Errorf("Invalid configuration `%s`", key)
+	}
+
+	cfg := rdkafka.ConfigMap{}
+	for _, opt := range parts {
+		p := strings.SplitN(opt, ":", 2)
+		if len(p) != 2 {
+			return nil, fmt.Errorf("Invalid configuration `%s`", key)
+		}
+		err := cfg.SetKey(p[0], p[1])
+		if err != nil {
+			return nil, fmt.Errorf("Invalid configuration `%s`, %s", key, cfg)
+		}
+	}
+	return cfg, nil
+
 }
 
 func parseAck(ack string) (string, int32, rdkafka.Offset, error) {

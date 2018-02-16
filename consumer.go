@@ -47,7 +47,7 @@ type OffsetEntry struct {
 	offset rdkafka.Offset
 }
 
-func NewConsumer(id string, topics []string, commitIntvl time.Duration, cfg rdkafka.ConfigMap) *Consumer {
+func NewConsumer(id string, topics []string, commitIntvl time.Duration, cfg rdkafka.ConfigMap) (*Consumer, error) {
 	var err error
 
 	c := Consumer{
@@ -60,12 +60,10 @@ func NewConsumer(id string, topics []string, commitIntvl time.Duration, cfg rdka
 
 	c.consumer, err = rdkafka.NewConsumer(&cfg)
 	if err != nil {
-		// TODO(agis): make this a log output instead if we ever accept
-		// config from clients
-		c.log.Fatal(err)
+		return nil, err
 	}
 
-	return &c
+	return &c, nil
 }
 
 func (c *Consumer) Run(ctx context.Context) {

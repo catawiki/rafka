@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	rdkafka "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-redis/redis"
 )
 
@@ -61,6 +63,32 @@ func TestConsumerTopicExclusive(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestConsumerConfig(t *testing.T) {
+	c := newClient("foo:bar1")
+	_, err := c.BLPop(1*time.Second, "topics:foo|auto.offset.reset:latest").Result()
+	if err != nil && err != redis.Nil {
+		t.Fatal(err)
+	}
+
+	// configuration only applies in the 1st operation
+	_, err = c.BLPop(1*time.Second, "topics:foo|auto.offset.reset:malformed").Result()
+	if err != nil && err != redis.Nil {
+		t.Fatal(err)
+	}
+
+	err = c.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	//	c = newClient("foo2:bar2")
+	//	_, err = c.BLPop(1*time.Second, "topics:foo|auto.offset.reset:malformed").Result()
+	//	if err == nil {
+	//		t.Fatal("Expected invalid configuration error, got nothing")
+	//	}
+
 }
 
 // RPUSH
@@ -192,6 +220,44 @@ func TestStatsQuery(t *testing.T) {
 	_, err = strconv.Atoi(v["producer.unflushed.messages"])
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestParseTopics(t *testing.T) {
+	cases := map[string][]string{
+		"topics:bar":             {"bar"},
+		"topics:foo,bar":         {"foo", "bar"},
+		"topics:baz|foo":         {"baz"},
+		"topics:baz,foo|a:b,c:d": {"baz", "foo"},
+		"topics:baz|":            {"baz"},
+		"topics:baz|||":          {"baz"},
+	}
+
+	for input, expected := range cases {
+		actual, err := parseTopics(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("Expected %v, got %v", expected, actual)
+		}
+	}
+}
+
+func TestParseConfig(t *testing.T) {
+	cases := map[string]rdkafka.ConfigMap{
+		"topics:bar|cfg:foo":     {"cfg": "foo"},
+		"topics:bar|a:b,c:d,e:f": {"a": "b", "c": "d", "e": "f"},
+	}
+
+	for input, expected := range cases {
+		actual, err := parseConfig(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("Expected %v, got %v", expected, actual)
+		}
 	}
 }
 
