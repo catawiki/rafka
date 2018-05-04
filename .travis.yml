@@ -20,7 +20,10 @@ before_install:
 install:
 - dep ensure -v
 - cp test/kafka.test.json kafka.json
-- cd test && docker-compose up -d
+- cd test
+  && docker-compose build
+  && docker-compose up -d
+  && cd $TRAVIS_BUILD_DIR
 
 script:
 - make
