@@ -9,8 +9,7 @@ services:
 before_install:
 - git clone https://github.com/skroutz/kafka-cluster-testbed.git
     && cd kafka-cluster-testbed
-    && docker-compose build
-    && docker-compose up -d
+    && docker-compose up --build --detach
     && cd $TRAVIS_BUILD_DIR
 - wget -qO - http://packages.confluent.io/deb/3.3/archive.key | sudo apt-key add -
 - sudo add-apt-repository "deb [arch=amd64] http://packages.confluent.io/deb/3.3 stable main"
@@ -21,8 +20,7 @@ install:
 - dep ensure -v
 - cp test/kafka.test.json kafka.json
 - cd test
-  && docker-compose build
-  && docker-compose up -d
+  && docker-compose up --build --detach
   && cd $TRAVIS_BUILD_DIR
 
 script:
