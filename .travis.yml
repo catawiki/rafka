@@ -20,8 +20,8 @@ install:
 - dep ensure -v
 - cp test/kafka.test.json kafka.json
 - cd test
-  && docker-compose up --build --detach
-  && cd $TRAVIS_BUILD_DIR
+    && docker-compose up --build --detach
+    && cd $TRAVIS_BUILD_DIR
 
 script:
 - make
